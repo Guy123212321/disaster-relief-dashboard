@@ -45,6 +45,13 @@ data["How Was Aid Organized?"] = aid_organized
 # Section 7: Damage, Loss, and Needs
 damage_loss_needs = df.iloc[44:48, :7]
 damage_loss_needs.columns = ["Region", "Billion (PKR)", "Million (US$)", "Billion (PKR)", "Million (US$)", "Billions (PKR)", "Millions (US$)"]
+
+# Clean the "Damage, Loss, and Needs" section
+damage_loss_needs = damage_loss_needs.dropna()  # Drop rows with missing values
+numeric_columns = ["Billion (PKR)", "Million (US$)", "Billions (PKR)", "Millions (US$)"]
+for col in numeric_columns:
+    damage_loss_needs[col] = pd.to_numeric(damage_loss_needs[col], errors="coerce")  # Convert to numeric
+
 data["Damage, Loss, and Needs"] = damage_loss_needs
 
 # Section 8: Types of Resources Needed for Disaster Relief
@@ -113,7 +120,10 @@ st.title("Disaster Relief Dashboard")
 # Display all sections
 for section_name, section_data in data.items():
     st.header(section_name)
-    st.write(section_data)
+    if isinstance(section_data, pd.DataFrame):
+        st.dataframe(section_data)  # Use st.dataframe for DataFrames
+    else:
+        st.write(section_data)  # Use st.write for other data types
 
 # Plot deaths by province
 st.header("Deaths by Province")
