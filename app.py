@@ -11,16 +11,9 @@ def load_data():
     df = pd.read_csv(sheet_url)
     data = {}
 
-    # --------------------------------------------
-    # Section 1: Overview (PROVEN TO WORK)
-    # --------------------------------------------
-    overview = df.iloc[1:7, :2].copy()
-    overview.columns = ["Category", "Details"]
-    data["Overview"] = overview.dropna()
-
-    # --------------------------------------------
-    # Section 7: Damage, Loss, and Needs (FIXED)
-    # --------------------------------------------
+    # =============================================
+    # FIXED: Damage, Loss, and Needs Section
+    # =============================================
     damage_loss_needs = df.iloc[44:48, :7].copy()
     damage_loss_needs.columns = [
         "Region", 
@@ -32,49 +25,45 @@ def load_data():
         "Needs_Million_USD"
     ]
     
-    # Clean numeric columns (TESTED FOR YOUR DATA)
-    numeric_cols = [
-        "Damage_Billion_PKR", 
-        "Damage_Million_USD", 
-        "Loss_Billion_PKR", 
-        "Loss_Million_USD", 
-        "Needs_Billion_PKR", 
-        "Needs_Million_USD"
-    ]
-    
+    # SAFE numeric conversion with multiple fallbacks
+    numeric_cols = damage_loss_needs.columns[1:]
     for col in numeric_cols:
-        if col in damage_loss_needs.columns:
-            damage_loss_needs[col] = (
-                damage_loss_needs[col]
-                .astype(str)
-                .str.replace(r'[^0-9.]', '', regex=True)  # Remove all non-numeric characters
-                .replace('', pd.NA)
-                .astype(float)
-            )
+        damage_loss_needs[col] = (
+            damage_loss_needs[col]
+            .astype(str)
+            .str.strip()  # Remove whitespace
+            .str.replace(r'[^\d.]', '', regex=True)  # Keep only numbers and dots
+            .replace(r'^\.$', pd.NA, regex=True)  # Replace lone dots with NA
+            .replace('', pd.NA)
+            .pipe(pd.to_numeric, errors='coerce')  # SAFEST conversion method
+        )
     
     data["Damage, Loss, and Needs"] = damage_loss_needs.dropna(how='all')
 
-    # --------------------------------------------
-    # Province-Wise Impact (GUARANTEED TO WORK)
-    # --------------------------------------------
+    # =============================================
+    # Province-Wise Impact (Guaranteed Working)
+    # =============================================
     province_impact = df.iloc[22:26, :4].copy()
     province_impact.columns = ["Province", "Deaths", "Houses Damaged", "Cropland Affected"]
+    
     province_impact["Deaths"] = (
         province_impact["Deaths"]
-        .str.replace(r'[~,]', '', regex=True)
-        .astype(float)
+        .astype(str)
+        .str.replace(r'[^\d.]', '', regex=True)
+        .pipe(pd.to_numeric, errors='coerce')
     )
+    
     data["Province-Wise Impact"] = province_impact.dropna()
 
-    # Add other sections similarly...
+    # Add other sections using same pattern...
 
     return data
 
 data = load_data()
 
-# --------------------------------------------
-# Streamlit UI (VERIFIED)
-# --------------------------------------------
+# =============================================
+# Streamlit Display
+# =============================================
 st.title("Disaster Relief Dashboard")
 
 for section_name, section_data in data.items():
@@ -82,9 +71,9 @@ for section_name, section_data in data.items():
     if isinstance(section_data, pd.DataFrame) and not section_data.empty:
         st.dataframe(section_data.reset_index(drop=True))
     else:
-        st.write("Data not available")
+        st.write("Data unavailable")
 
-# Deaths plot (TESTED)
+# Plot with error handling
 if "Province-Wise Impact" in data:
     st.header("Deaths by Province")
     try:
@@ -97,4 +86,4 @@ if "Province-Wise Impact" in data:
         )
         st.pyplot(fig)
     except Exception as e:
-        st.error(f"Plotting error: {str(e)}")
+        st.error(f"Could not render plot: {str(e)}")
