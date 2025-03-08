@@ -57,9 +57,11 @@ def load_data():
     numeric_columns = ["Billion (PKR)", "Million (US$)", "Billions (PKR)", "Millions (US$)"]
     for col in numeric_columns:
         if col in damage_loss_needs.columns:
-            # Remove commas and convert to numeric
-            damage_loss_needs[col] = damage_loss_needs[col].astype(str).str.replace(",", "").str.replace('"', "")
-            damage_loss_needs[col] = pd.to_numeric(damage_loss_needs[col], errors="coerce")
+            # Check if the column exists and is not empty
+            if not damage_loss_needs[col].empty:
+                # Remove commas and quotes, then convert to numeric
+                damage_loss_needs[col] = damage_loss_needs[col].astype(str).str.replace(",", "").str.replace('"', "")
+                damage_loss_needs[col] = pd.to_numeric(damage_loss_needs[col], errors="coerce")
 
     data["Damage, Loss, and Needs"] = damage_loss_needs
 
