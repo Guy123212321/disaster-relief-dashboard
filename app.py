@@ -48,6 +48,19 @@ def load_data():
     # Section 7: Damage, Loss, and Needs
     damage_loss_needs = df.iloc[44:48, :7]
     damage_loss_needs.columns = ["Region", "Billion (PKR)", "Million (US$)", "Billion (PKR)", "Million (US$)", "Billions (PKR)", "Millions (US$)"]
+
+    # Clean the "Damage, Loss, and Needs" section
+    damage_loss_needs = damage_loss_needs.dropna(how="all")  # Drop empty rows
+    damage_loss_needs = damage_loss_needs.reset_index(drop=True)  # Reset index
+
+    # Convert numeric columns to appropriate data types
+    numeric_columns = ["Billion (PKR)", "Million (US$)", "Billions (PKR)", "Millions (US$)"]
+    for col in numeric_columns:
+        if col in damage_loss_needs.columns:
+            # Remove commas and convert to numeric
+            damage_loss_needs[col] = damage_loss_needs[col].astype(str).str.replace(",", "").str.replace('"', "")
+            damage_loss_needs[col] = pd.to_numeric(damage_loss_needs[col], errors="coerce")
+
     data["Damage, Loss, and Needs"] = damage_loss_needs
 
     # Section 8: Types of Resources Needed for Disaster Relief
