@@ -48,13 +48,18 @@ damage_loss_needs.columns = ["Region", "Billion (PKR)", "Million (US$)", "Billio
 
 # Clean the "Damage, Loss, and Needs" section
 damage_loss_needs = damage_loss_needs.dropna()  # Drop rows with missing values
-damage_loss_needs.replace(["N/A", "-", ""], pd.NA, inplace=True)  # Replace non-numeric values with NaN
+damage_loss_needs.replace(["N/A", "-", "", "Unknown"], pd.NA, inplace=True)  # Replace non-numeric values with NaN
 
 # Convert numeric columns to appropriate data types
 numeric_columns = ["Billion (PKR)", "Million (US$)", "Billions (PKR)", "Millions (US$)"]
 for col in numeric_columns:
     if col in damage_loss_needs.columns:
-        damage_loss_needs[col] = pd.to_numeric(damage_loss_needs[col], errors="coerce")  # Convert to numeric
+        # Ensure the column is a pandas Series
+        if isinstance(damage_loss_needs[col], pd.Series):
+            # Remove commas and convert to numeric
+            damage_loss_needs[col] = pd.to_numeric(damage_loss_needs[col].astype(str).str.replace(",", ""), errors="coerce")
+        else:
+            st.error(f"Column '{col}' is not a pandas Series. Please check the data.")
 
 data["Damage, Loss, and Needs"] = damage_loss_needs
 
