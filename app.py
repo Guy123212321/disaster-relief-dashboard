@@ -17,7 +17,7 @@ uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
 
 def load_data(file):
     try:
-        df = pd.read_csv(file, encoding="utf-8", error_bad_lines=False, skip_blank_lines=True)
+        df = pd.read_csv(file, encoding="utf-8", on_bad_lines="skip", skip_blank_lines=True)
         return df
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
