@@ -29,12 +29,12 @@ else:
 # ====================
 data = {}
 
-# Overview Section
+# Overview
 overview = df.iloc[1:7, :2].copy()
 overview.columns = ["Category", "Details"]
 data["Overview"] = overview.dropna()
 
-# Infrastructure Damage
+# Infrastructure Dmg
 infra_damage = df.iloc[10:15, :3].copy()
 infra_damage.columns = ["Category", "Damage Details", "Estimated Cost (USD)"]
 infra_damage["Estimated Cost (USD)"] = (
@@ -62,7 +62,7 @@ for col in ["Deaths", "Houses Damaged"]:
     )
 data["Region-Wise Impact"] = province_impact.dropna()
 
-# Key Statistics
+# Key Stats
 key_stats = df.iloc[28:34, :2].copy()
 key_stats.columns = ["Statistic", "Value"]
 data["Key Statistics"] = key_stats.dropna()
@@ -84,7 +84,7 @@ for col in damage_loss.columns[1:]:
 data["Damage Analysis"] = damage_loss.dropna(how='all')
 
 # ====================
-# Visualizations
+# visuals :fire
 # ====================
 if "Region-Wise Impact" in data and not data["Region-Wise Impact"].empty:
     region_data = data["Region-Wise Impact"]
@@ -120,7 +120,7 @@ st.markdown("""
 - Priority shelter allocation for displaced families.
 """)
 
-# Tabs for Data Sections
+# Tabs 4 data section
 tabs = st.tabs(["[💰 Damage Analysis]", "[🏥 Infrastructure]", "[📈 Statistics]", "[📋 Full Data]"])
 with tabs[0]:
     if "Damage Analysis" in data:
@@ -156,7 +156,7 @@ with tabs[3]:
                 st.dataframe(data[section], use_container_width=True)
 
 # ====================
-# Emergency Calculator (Unchanged)
+# emregency calculator :D
 # ====================
 with st.sidebar:
     st.header("🚨 Emergency Calculator")
