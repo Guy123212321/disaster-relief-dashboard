@@ -3,7 +3,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import folium
+from streamlit_folium import folium_static
 
+# ====================
+# Streamlit Setup
+# ====================
 st.set_page_config(layout="wide")
 st.title("🌍 Disaster Response Dashboard")
 
@@ -15,13 +20,18 @@ uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
 
 def load_data(file):
     df = pd.read_csv(file)
+    
+    # Ensure required columns exist
+    if not {"Latitude", "Longitude"}.issubset(df.columns):
+        st.sidebar.warning("🚨 Note: No Latitude/Longitude found! Map will not be available.")
+    
     return df
 
 if uploaded_file:
     df = load_data(uploaded_file)
-    st.sidebar.success("File uploaded successfully!")
+    st.sidebar.success("✅ File uploaded successfully!")
 else:
-    st.sidebar.warning("Please upload a CSV file.")
+    st.sidebar.warning("⚠️ Please upload a CSV file.")
     st.stop()
 
 # ====================
@@ -29,12 +39,12 @@ else:
 # ====================
 data = {}
 
-# Overview
+# Overview Section
 overview = df.iloc[1:7, :2].copy()
 overview.columns = ["Category", "Details"]
 data["Overview"] = overview.dropna()
 
-# Infrastructure Dmg
+# Infrastructure Damage
 infra_damage = df.iloc[10:15, :3].copy()
 infra_damage.columns = ["Category", "Damage Details", "Estimated Cost (USD)"]
 infra_damage["Estimated Cost (USD)"] = (
@@ -62,7 +72,7 @@ for col in ["Deaths", "Houses Damaged"]:
     )
 data["Region-Wise Impact"] = province_impact.dropna()
 
-# Key Stats
+# Key Statistics
 key_stats = df.iloc[28:34, :2].copy()
 key_stats.columns = ["Statistic", "Value"]
 data["Key Statistics"] = key_stats.dropna()
@@ -84,7 +94,39 @@ for col in damage_loss.columns[1:]:
 data["Damage Analysis"] = damage_loss.dropna(how='all')
 
 # ====================
-# visuals :fire
+# Map Route Visualization
+# ====================
+def plot_routes(df):
+    m = folium.Map(location=[df["Latitude"].mean(), df["Longitude"].mean()], zoom_start=6)
+
+    # Add markers
+    for _, row in df.iterrows():
+        folium.Marker(
+            location=[row["Latitude"], row["Longitude"]],
+            popup=row["Region"],
+            tooltip=row["Region"],
+            icon=folium.Icon(color="red", icon="info-sign")
+        ).add_to(m)
+
+    # Add routes (polyline)
+    folium.PolyLine(
+        locations=df[["Latitude", "Longitude"]].values.tolist(),
+        color="blue",
+        weight=5,
+        opacity=0.7
+    ).add_to(m)
+
+    return m
+
+# Show map if valid coordinates are available
+if "Latitude" in df.columns and "Longitude" in df.columns:
+    st.subheader("🚚 Disaster Relief Routes")
+    st.write("This map shows the transportation routes for disaster relief resources.")
+    route_map = plot_routes(df)
+    folium_static(route_map)
+
+# ====================
+# Visualizations
 # ====================
 if "Region-Wise Impact" in data and not data["Region-Wise Impact"].empty:
     region_data = data["Region-Wise Impact"]
@@ -107,12 +149,10 @@ if "Region-Wise Impact" in data and not data["Region-Wise Impact"].empty:
     ax.spines['right'].set_visible(False)
     data["Casualty Analysis"] = fig
 
-# ====================
-# Streamlit Interface
-# ====================
 st.subheader("Human Impact Analysis")
 if "Casualty Analysis" in data:
     st.pyplot(data["Casualty Analysis"])
+
 st.markdown("""
 **Actionable Insights:**
 - Immediate medical aid required in high casualty regions.
@@ -120,7 +160,9 @@ st.markdown("""
 - Priority shelter allocation for displaced families.
 """)
 
-# Tabs 4 data section
+# ====================
+# Tabs for Data Sections
+# ====================
 tabs = st.tabs(["[💰 Damage Analysis]", "[🏥 Infrastructure]", "[📈 Statistics]", "[📋 Full Data]"])
 with tabs[0]:
     if "Damage Analysis" in data:
@@ -156,7 +198,7 @@ with tabs[3]:
                 st.dataframe(data[section], use_container_width=True)
 
 # ====================
-# emregency calculator :D
+# Emergency Calculator
 # ====================
 with st.sidebar:
     st.header("🚨 Emergency Calculator")
