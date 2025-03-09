@@ -53,7 +53,7 @@ if infra_damage.shape[1] >= 3:  # Ensure there are at least 3 columns
     )
     data["Infrastructure Damage"] = infra_damage.dropna()
 else:
-    st.warning("⚠ Infrastructure Damage section could not be processed. Check CSV formatting.")
+    st.warning("⚠ The 'Infrastructure Damage' section does not have enough data columns to process correctly.")
 
 # Causes of Disaster
 causes = df.iloc[17:20, :2].copy()
