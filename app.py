@@ -3,9 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import folium
-from streamlit_folium import folium_static
 
+# Set page layout
 st.set_page_config(layout="wide")
 st.title("🌍 Disaster Response Dashboard")
 
@@ -17,7 +16,7 @@ uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
 
 def load_data(file):
     try:
-        df = pd.read_csv(file, encoding="utf-8", on_bad_lines="skip", skip_blank_lines=True)
+        df = pd.read_csv(file, encoding='utf-8', error_bad_lines=False)  # Adjust for bad lines
         return df
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
@@ -27,9 +26,6 @@ if uploaded_file:
     df = load_data(uploaded_file)
     if df is not None:
         st.sidebar.success("File uploaded successfully!")
-    else:
-        st.sidebar.error("Invalid CSV file. Please check formatting.")
-        st.stop()
 else:
     st.sidebar.warning("Please upload a CSV file.")
     st.stop()
@@ -45,15 +41,19 @@ overview.columns = ["Category", "Details"]
 data["Overview"] = overview.dropna()
 
 # Infrastructure Damage
-infra_damage = df.iloc[10:15, :3].copy()
-infra_damage.columns = ["Category", "Damage Details", "Estimated Cost (USD)"]
-infra_damage["Estimated Cost (USD)"] = (
-    infra_damage["Estimated Cost (USD)"]
-    .astype(str)
-    .str.replace(r'[^\d.]', '', regex=True)
-    .pipe(pd.to_numeric, errors='coerce')
-)
-data["Infrastructure Damage"] = infra_damage.dropna()
+infra_damage = df.iloc[10:15, :].copy()  # Take all columns
+if infra_damage.shape[1] >= 3:  # Ensure there are at least 3 columns
+    infra_damage = infra_damage.iloc[:, :3]  # Select only the first 3 columns
+    infra_damage.columns = ["Category", "Damage Details", "Estimated Cost (USD)"]
+    infra_damage["Estimated Cost (USD)"] = (
+        infra_damage["Estimated Cost (USD)"]
+        .astype(str)
+        .str.replace(r'[^\d.]', '', regex=True)
+        .pipe(pd.to_numeric, errors='coerce')
+    )
+    data["Infrastructure Damage"] = infra_damage.dropna()
+else:
+    st.warning("⚠ Infrastructure Damage section could not be processed. Check CSV formatting.")
 
 # Causes of Disaster
 causes = df.iloc[17:20, :2].copy()
@@ -61,9 +61,9 @@ causes.columns = ["Cause", "Details"]
 data["Causes of Disaster"] = causes.dropna()
 
 # Region-wise Impact
-province_impact = df.iloc[22:26, :6].copy()
-province_impact.columns = ["Region", "Deaths", "Houses Damaged", "Cropland Affected", "Latitude", "Longitude"]
-for col in ["Deaths", "Houses Damaged", "Cropland Affected"]:
+province_impact = df.iloc[22:26, :4].copy()
+province_impact.columns = ["Region", "Deaths", "Houses Damaged", "Cropland Affected"]
+for col in ["Deaths", "Houses Damaged"]:
     province_impact[col] = (
         province_impact[col]
         .astype(str)
@@ -88,6 +88,7 @@ for col in damage_loss.columns[1:]:
         damage_loss[col]
         .astype(str)
         .str.replace(r'[^\d.]', '', regex=True)
+        .replace(r'^.$', np.nan, regex=True)
         .pipe(pd.to_numeric, errors='coerce')
     )
 data["Damage Analysis"] = damage_loss.dropna(how='all')
@@ -97,12 +98,9 @@ data["Damage Analysis"] = damage_loss.dropna(how='all')
 # ====================
 if "Region-Wise Impact" in data and not data["Region-Wise Impact"].empty:
     region_data = data["Region-Wise Impact"]
-    
-    # Casualty Bar Chart
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ['#2ecc71' if x < region_data['Deaths'].median() else '#e74c3c' for x in region_data['Deaths']]
     bars = ax.bar(region_data['Region'], region_data['Deaths'], color=colors, edgecolor='white')
-    
     for bar in bars:
         height = bar.get_height()
         ax.annotate(f'{height:,.0f}',
@@ -112,13 +110,11 @@ if "Region-Wise Impact" in data and not data["Region-Wise Impact"].empty:
                     ha='center',
                     va='bottom',
                     fontsize=10)
-    
     ax.set_title('Casualties by Region', fontsize=14, pad=20, fontweight='bold')
     ax.set_ylabel('Number of Deaths', labelpad=15)
     ax.set_xlabel('')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    
     data["Casualty Analysis"] = fig
 
 # ====================
@@ -127,9 +123,15 @@ if "Region-Wise Impact" in data and not data["Region-Wise Impact"].empty:
 st.subheader("Human Impact Analysis")
 if "Casualty Analysis" in data:
     st.pyplot(data["Casualty Analysis"])
+st.markdown(""" 
+**Actionable Insights:**
+- Immediate medical aid required in high casualty regions.
+- Evacuation support needed for remaining at-risk populations.
+- Priority shelter allocation for displaced families.
+""")
 
 # Tabs for Data Sections
-tabs = st.tabs(["[💰 Damage Analysis]", "[🏥 Infrastructure]", "[📈 Statistics]", "[📍 Map]"])
+tabs = st.tabs(["[💰 Damage Analysis]", "[🏥 Infrastructure]", "[📈 Statistics]", "[📋 Full Data]"])
 with tabs[0]:
     if "Damage Analysis" in data:
         st.subheader("Financial Impact Assessment")
@@ -142,11 +144,10 @@ with tabs[0]:
             }),
             use_container_width=True
         )
-
 with tabs[1]:
     if "Infrastructure Damage" in data:
         st.subheader("Critical Infrastructure Damage")
-        fig, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(8,4))
         damage_df = data["Infrastructure Damage"]
         sns.barplot(
             x="Estimated Cost (USD)",
@@ -157,29 +158,15 @@ with tabs[1]:
         )
         ax.set_title("Estimated Repair Costs")
         st.pyplot(fig)
-
-# ====================
-# Map Routes Feature
-# ====================
 with tabs[3]:
-    st.subheader("Disaster Impact Map")
-
-    if "Region-Wise Impact" in data:
-        region_data = data["Region-Wise Impact"]
-        map_center = [region_data["Latitude"].mean(), region_data["Longitude"].mean()]
-        disaster_map = folium.Map(location=map_center, zoom_start=5)
-
-        for _, row in region_data.iterrows():
-            folium.Marker(
-                location=[row["Latitude"], row["Longitude"]],
-                popup=f"Region: {row['Region']}<br>Deaths: {row['Deaths']}<br>Houses Damaged: {row['Houses Damaged']}",
-                icon=folium.Icon(color="red"),
-            ).add_to(disaster_map)
-
-        folium_static(disaster_map)
+    st.subheader("Complete Dataset Overview")
+    for section in data:
+        if section not in ["Casualty Analysis"]:
+            with st.expander(f"📁 {section}"):
+                st.dataframe(data[section], use_container_width=True)
 
 # ====================
-# Emergency Calculator
+# Emergency Calculator (Unchanged)
 # ====================
 with st.sidebar:
     st.header("🚨 Emergency Calculator")
@@ -188,4 +175,4 @@ with st.sidebar:
     st.write(f"💧 Water: **{(population * 15):,} liters**")
     st.write(f"🍲 Food: **{(population * 2.1):,} kg**")
     st.write(f"🏥 Medical Kits: **{np.ceil(population/1000):.0f} units**")
-    st.write(f"🛏️ Shelter: **{np.ceil(population/5):,} family tents**")  
+    st.write(f"🛏️ Shelter: **{np.ceil(population/5):,} family tents**")
